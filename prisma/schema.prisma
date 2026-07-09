@@ -1,0 +1,128 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+
+model User {
+  id        String     @id @default(uuid())
+  name      String
+  email     String     @unique
+  password  String
+  phone     String?
+  role      Role
+  status    UserStatus @default(ACTIVE)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  gearItems    GearItem[]    @relation("ProviderGear")
+  rentalOrders RentalOrder[] @relation("CustomerOrders")
+  reviews      Review[]
+
+  @@map("users")
+}
+
+model Category {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  gearItems GearItem[]
+
+  @@map("categories")
+}
+
+model GearItem {
+  id             String     @id @default(uuid())
+  name           String
+  description    String?
+  brand          String?
+  pricePerDay    Float
+  totalStock     Int
+  availableStock Int
+  images         String[]
+  status         GearStatus @default(AVAILABLE)
+
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id])
+
+  providerId String
+  provider   User   @relation("ProviderGear", fields: [providerId], references: [id])
+
+  rentalOrderItems RentalOrderItem[]
+  reviews          Review[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("gear_items")
+}
+
+model RentalOrder {
+  id          String       @id @default(uuid())
+  customerId  String
+  customer    User         @relation("CustomerOrders", fields: [customerId], references: [id])
+  startDate   DateTime
+  endDate     DateTime
+  totalAmount Float
+  status      RentalStatus @default(PLACED)
+
+  items    RentalOrderItem[]
+  payments Payment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("rental_orders")
+}
+
+model RentalOrderItem {
+  id            String      @id @default(uuid())
+  rentalOrderId String
+  rentalOrder   RentalOrder @relation(fields: [rentalOrderId], references: [id], onDelete: Cascade)
+
+  gearItemId String
+  gearItem   GearItem @relation(fields: [gearItemId], references: [id])
+
+  quantity    Int
+  pricePerDay Float
+
+  @@map("rental_order_items")
+}
+
+model Payment {
+  id            String        @id @default(uuid())
+  transactionId String        @unique
+  rentalOrderId String
+  rentalOrder   RentalOrder   @relation(fields: [rentalOrderId], references: [id])
+  amount        Float
+  method        PaymentMethod
+  status        PaymentStatus @default(PENDING)
+  paidAt        DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("payments")
+}
+
+model Review {
+  id      String  @id @default(uuid())
+  rating  Int
+  comment String?
+
+  customerId String
+  customer   User   @relation(fields: [customerId], references: [id])
+
+  gearItemId String
+  gearItem   GearItem @relation(fields: [gearItemId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@map("reviews")
+}
