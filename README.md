@@ -2,6 +2,15 @@
 
 Rent Sports & Outdoor Gear Instantly — Backend API
 
+## Live Link
+[https://gearup-server-2.onrender.com](https://gearup-server-2.onrender.com)
+
+## API Documentation (Postman)
+
+Import the collection directly:
+[GearUp-API.postman_collection.json](./postman/GearUp-API.postman_collection.json)
+
+
 ## Tech Stack
 - Node.js + Express + TypeScript
 - PostgreSQL + Prisma
