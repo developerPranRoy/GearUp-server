@@ -2,6 +2,8 @@
 
 Rent Sports & Outdoor Gear Instantly — Backend API
 
+**Live API:** [https://gearup-server-2.onrender.com](https://gearup-server-2.onrender.com)
+
 ## Tech Stack
 
 - Node.js + Express + TypeScript
@@ -64,5 +66,6 @@ PLACED -> CANCELLED (customer, only while PLACED)
 
 # GearUp-server
 
-## PostMan Api Endpoint
-<!-- https://pranto-5627.postman.co/workspace/ecomerce~4f0f0be4-6fa4-410a-9781-6e6b30abbf50/collection/40735137-ca555a87-407d-4c36-951f-4089b728bf67?action=share&creator=40735137 -->
+## Postman API Collection
+
+[View the Postman collection](https://pranto-5627.postman.co/workspace/ecomerce~4f0f0be4-6fa4-410a-9781-6e6b30abbf50/collection/40735137-ca555a87-407d-4c36-951f-4089b728bf67?action=share&creator=40735137)
