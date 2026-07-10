@@ -3,13 +3,16 @@
 Rent Sports & Outdoor Gear Instantly — Backend API
 
 ## Tech Stack
+
 - Node.js + Express + TypeScript
 - PostgreSQL + Prisma
 - JWT auth
 - Zod validation
 
 ## Module Pattern
+
 Every module (`auth`, `category`, `gear`, `rental`, `payment`, `review`, `provider`, `admin`) follows:
+
 ```
 module.interface.ts   -> types
 module.constant.ts    -> searchable/filterable fields (where relevant)
@@ -23,6 +26,7 @@ Controllers never talk to Prisma directly — only services do. Cross-module orc
 (e.g. provider updating gear it doesn't own) lives in the service layer.
 
 ## Setup
+
 ```bash
 npm install
 cp .env.example .env   # fill in DATABASE_URL, JWT secrets, etc.
@@ -32,24 +36,33 @@ npm run dev
 ```
 
 ## Prisma 7 note
+
 This project uses Prisma 7, which requires a driver adapter instead of a bare `datasource.url`
 in `schema.prisma`. The connection string lives in two places:
+
 - `prisma.config.ts` (root) — used by the Prisma CLI for `migrate`/`studio`/`generate`
 - `src/shared/prisma.ts` — used at runtime, via `@prisma/adapter-pg` + `pg`
 
 Both read `DATABASE_URL` from `.env`, so you only need to set it once.
 
 ## Auth
+
 Send `Authorization: Bearer <token>` header. Roles: CUSTOMER, PROVIDER, ADMIN.
 
 ## Rental Order Status Flow
+
 ```
 PLACED -> CONFIRMED (provider) -> PAID (payment confirm) -> PICKED_UP (provider) -> RETURNED (provider)
 PLACED -> CANCELLED (customer, only while PLACED)
 ```
 
 ## Notes
+
 - `POST /api/payments/create` creates a PENDING payment record (integrate real Stripe/SSLCommerz call in `payment.service.ts`).
 - `POST /api/payments/confirm` is the webhook/callback endpoint — no auth guard, matches Stripe/SSLCommerz callback pattern. Add signature verification before production use.
 - Reviews are gated: a customer can only review a gear item after a RETURNED rental containing that item.
+
 # GearUp-server
+
+## PostMan Api Endpoint
+<!-- https://pranto-5627.postman.co/workspace/ecomerce~4f0f0be4-6fa4-410a-9781-6e6b30abbf50/collection/40735137-ca555a87-407d-4c36-951f-4089b728bf67?action=share&creator=40735137 -->
