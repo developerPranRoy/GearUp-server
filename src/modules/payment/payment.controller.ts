@@ -16,6 +16,13 @@ const createPayment = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const stripeWebhook = catchAsync(async (req: Request, res: Response) => {
+  const signature = req.headers["stripe-signature"] as string;
+  const result = await PaymentService.handleStripeWebhookDb(req.body, signature);
+
+  res.status(httpStatus.OK).json(result);
+});
+
 const confirmPayment = catchAsync(async (req: Request, res: Response) => {
   const result = await PaymentService.confirmPaymentDb(req.body);
 
@@ -55,6 +62,7 @@ const getPaymentById = catchAsync(async (req: Request, res: Response) => {
 
 export const PaymentController = {
   createPayment,
+  stripeWebhook,
   confirmPayment,
   getMyPayments,
   getPaymentById,

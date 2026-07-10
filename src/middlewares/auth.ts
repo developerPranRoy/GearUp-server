@@ -8,7 +8,8 @@ import config from "../config";
 const auth = (...requiredRoles: string[]) => {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const token = req.headers.authorization?.split(" ")[1];
+      const authHeader = req.headers.authorization?.trim();
+      const token = authHeader?.replace(/^Bearer\s+/i, "");
 
       if (!token) {
         throw new ApiError(httpStatus.UNAUTHORIZED, "You are not authorized");

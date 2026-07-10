@@ -2,9 +2,14 @@ import httpStatus from "http-status";
 import { v4 as uuidv4 } from "uuid";
 import ApiError from "../../errors/ApiError";
 import prisma from "../../shared/prisma";
-import { ICreatePaymentInput } from "./payment.interface";
+import stripe from "../../shared/stripe";
+import config from "../../config";
+import { ICreatePaymentInput, ICreatePaymentResponse } from "./payment.interface";
 
-const createPaymentDb = async (customerId: string, payload: ICreatePaymentInput) => {
+const createPaymentDb = async (
+  customerId: string,
+  payload: ICreatePaymentInput
+): Promise<ICreatePaymentResponse> => {
   const { rentalOrderId, method } = payload;
 
   const rentalOrder = await prisma.rentalOrder.findUnique({ where: { id: rentalOrderId } });
@@ -21,48 +26,168 @@ const createPaymentDb = async (customerId: string, payload: ICreatePaymentInput)
     throw new ApiError(httpStatus.BAD_REQUEST, "Order must be confirmed before payment");
   }
 
+  const existingPendingPayment = await prisma.payment.findFirst({
+    where: { rentalOrderId, status: "PENDING" },
+  });
+
+  if (existingPendingPayment) {
+    throw new ApiError(
+      httpStatus.CONFLICT,
+      "A pending payment already exists for this order"
+    );
+  }
+
+  if (method === "STRIPE") {
+    // amount must be in the smallest currency unit (e.g. cents for USD)
+    const amountInSmallestUnit = Math.round(rentalOrder.totalAmount * 100);
+
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: amountInSmallestUnit,
+      currency: config.stripe_currency as string,
+      metadata: {
+        rentalOrderId,
+        customerId,
+      },
+      automatic_payment_methods: { enabled: true },
+    });
+
+    const payment = await prisma.payment.create({
+      data: {
+        transactionId: paymentIntent.id,
+        rentalOrderId,
+        amount: rentalOrder.totalAmount,
+        method: "STRIPE",
+        status: "PENDING",
+      },
+    });
+
+    return {
+      payment: {
+        id: payment.id,
+        transactionId: payment.transactionId,
+        amount: payment.amount,
+        method: payment.method,
+        status: payment.status,
+      },
+      clientSecret: paymentIntent.client_secret,
+    };
+  }
+
+  // SSLCommerz path: create a local pending record with a generated transaction id.
+  // Wire up SSLCommerz's initiate-session API here and return their gateway redirect URL
+  // to the client instead of a Stripe clientSecret.
   const transactionId = `TXN-${uuidv4()}`;
 
-  // NOTE: integrate actual Stripe PaymentIntent / SSLCommerz session creation here.
   const payment = await prisma.payment.create({
     data: {
       transactionId,
       rentalOrderId,
       amount: rentalOrder.totalAmount,
-      method,
+      method: "SSLCOMMERZ",
       status: "PENDING",
     },
   });
 
-  return payment;
+  return {
+    payment: {
+      id: payment.id,
+      transactionId: payment.transactionId,
+      amount: payment.amount,
+      method: payment.method,
+      status: payment.status,
+    },
+    clientSecret: null,
+  };
 };
 
-const confirmPaymentDb = async (payload: { transactionId: string; status: "COMPLETED" | "FAILED" }) => {
+const markPaymentCompletedDb = async (transactionId: string) => {
+  const payment = await prisma.payment.findUnique({ where: { transactionId } });
+
+  if (!payment) {
+    // Webhook may fire for a payment intent we don't track (e.g. test event) — ignore silently.
+    return;
+  }
+
+  if (payment.status === "COMPLETED") {
+    return;
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.payment.update({
+      where: { transactionId },
+      data: { status: "COMPLETED", paidAt: new Date() },
+    });
+
+    await tx.rentalOrder.update({
+      where: { id: payment.rentalOrderId },
+      data: { status: "PAID" },
+    });
+  });
+};
+
+const markPaymentFailedDb = async (transactionId: string) => {
+  const payment = await prisma.payment.findUnique({ where: { transactionId } });
+
+  if (!payment) {
+    return;
+  }
+
+  await prisma.payment.update({
+    where: { transactionId },
+    data: { status: "FAILED" },
+  });
+};
+
+const handleStripeWebhookDb = async (rawBody: Buffer, signature: string) => {
+  let event;
+
+  try {
+    event = stripe.webhooks.constructEvent(
+      rawBody,
+      signature,
+      config.stripe_webhook_secret as string
+    );
+  } catch (error) {
+    throw new ApiError(httpStatus.BAD_REQUEST, "Invalid Stripe webhook signature");
+  }
+
+  switch (event.type) {
+    case "payment_intent.succeeded": {
+      const paymentIntent = event.data.object as { id: string };
+      await markPaymentCompletedDb(paymentIntent.id);
+      break;
+    }
+    case "payment_intent.payment_failed": {
+      const paymentIntent = event.data.object as { id: string };
+      await markPaymentFailedDb(paymentIntent.id);
+      break;
+    }
+    default:
+      break;
+  }
+
+  return { received: true };
+};
+
+// Manual confirm endpoint — used for SSLCommerz callback (form POST, not a signed webhook)
+// or for manually testing the payment flow without a live Stripe webhook listener.
+const confirmPaymentDb = async (payload: {
+  transactionId: string;
+  status: "COMPLETED" | "FAILED";
+}) => {
   const payment = await prisma.payment.findUnique({ where: { transactionId: payload.transactionId } });
 
   if (!payment) {
     throw new ApiError(httpStatus.NOT_FOUND, "Payment not found");
   }
 
-  const result = await prisma.$transaction(async (tx) => {
-    const updatedPayment = await tx.payment.update({
-      where: { transactionId: payload.transactionId },
-      data: {
-        status: payload.status,
-        paidAt: payload.status === "COMPLETED" ? new Date() : null,
-      },
-    });
+  if (payload.status === "COMPLETED") {
+    await markPaymentCompletedDb(payload.transactionId);
+  } else {
+    await markPaymentFailedDb(payload.transactionId);
+  }
 
-    if (payload.status === "COMPLETED") {
-      await tx.rentalOrder.update({
-        where: { id: payment.rentalOrderId },
-        data: { status: "PAID" },
-      });
-    }
-
-    return updatedPayment;
-  });
-
+  const result = await prisma.payment.findUnique({ where: { transactionId: payload.transactionId } });
   return result;
 };
 
@@ -95,6 +220,7 @@ const getPaymentByIdDb = async (id: string, customerId: string, role: string) =>
 
 export const PaymentService = {
   createPaymentDb,
+  handleStripeWebhookDb,
   confirmPaymentDb,
   getMyPaymentsDb,
   getPaymentByIdDb,

@@ -3,7 +3,6 @@ import validateRequest from "../../middlewares/validateRequest";
 import { AuthValidation } from "./auth.validation";
 import { AuthController } from "./auth.controller";
 import auth from "../../middlewares/auth";
-import { Role } from "@prisma/client";
 
 const router = express.Router();
 
@@ -19,6 +18,6 @@ router.post(
   AuthController.loginUser
 );
 
-router.get("/me", auth(Role.ADMIN,Role.CUSTOMER,Role.PROVIDER), AuthController.getMe);
+router.get("/me", auth("CUSTOMER", "PROVIDER", "ADMIN"), AuthController.getMe);
 
 export const AuthRoutes = router;

@@ -15,6 +15,8 @@ export default {
   },
   bcrypt_salt_rounds: process.env.BCRYPT_SALT_ROUNDS,
   stripe_secret_key: process.env.STRIPE_SECRET_KEY,
+  stripe_webhook_secret: process.env.STRIPE_WEBHOOK_SECRET,
+  stripe_currency: process.env.STRIPE_CURRENCY || "usd",
   sslcommerz: {
     store_id: process.env.SSLCOMMERZ_STORE_ID,
     store_passwd: process.env.SSLCOMMERZ_STORE_PASSWORD,
