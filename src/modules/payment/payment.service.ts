@@ -38,7 +38,6 @@ const createPaymentDb = async (
   }
 
   if (method === "STRIPE") {
-    // amount must be in the smallest currency unit (e.g. cents for USD)
     const amountInSmallestUnit = Math.round(rentalOrder.totalAmount * 100);
 
     const paymentIntent = await stripe.paymentIntents.create({
@@ -73,9 +72,7 @@ const createPaymentDb = async (
     };
   }
 
-  // SSLCommerz path: create a local pending record with a generated transaction id.
-  // Wire up SSLCommerz's initiate-session API here and return their gateway redirect URL
-  // to the client instead of a Stripe clientSecret.
+
   const transactionId = `TXN-${uuidv4()}`;
 
   const payment = await prisma.payment.create({
@@ -104,7 +101,7 @@ const markPaymentCompletedDb = async (transactionId: string) => {
   const payment = await prisma.payment.findUnique({ where: { transactionId } });
 
   if (!payment) {
-    // Webhook may fire for a payment intent we don't track (e.g. test event) — ignore silently.
+   
     return;
   }
 
@@ -169,8 +166,6 @@ const handleStripeWebhookDb = async (rawBody: Buffer, signature: string) => {
   return { received: true };
 };
 
-// Manual confirm endpoint — used for SSLCommerz callback (form POST, not a signed webhook)
-// or for manually testing the payment flow without a live Stripe webhook listener.
 const confirmPaymentDb = async (payload: {
   transactionId: string;
   status: "COMPLETED" | "FAILED";

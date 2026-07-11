@@ -5,30 +5,31 @@ import { GearValidation } from "../gear/gear.validation";
 import { GearController } from "../gear/gear.controller";
 import { ProviderValidation } from "./provider.validation";
 import { ProviderController } from "./provider.controller";
+import { Role } from "@prisma/client";
 
 const router = express.Router();
 
 router.post(
   "/gear",
-  auth("PROVIDER"),
+  auth(Role.PROVIDER),
   validateRequest(GearValidation.createGearZodSchema),
   GearController.createGear
 );
 
 router.put(
   "/gear/:id",
-  auth("PROVIDER"),
+  auth(Role.PROVIDER),
   validateRequest(GearValidation.updateGearZodSchema),
   GearController.updateGear
 );
 
-router.delete("/gear/:id", auth("PROVIDER"), GearController.deleteGear);
+router.delete("/gear/:id", auth(Role.PROVIDER), GearController.deleteGear);
 
-router.get("/orders", auth("PROVIDER"), ProviderController.getProviderOrders);
+router.get("/orders", auth(Role.PROVIDER), ProviderController.getProviderOrders);
 
 router.patch(
   "/orders/:id",
-  auth("PROVIDER"),
+  auth(Role.PROVIDER),
   validateRequest(ProviderValidation.updateOrderStatusZodSchema),
   ProviderController.updateOrderStatus
 );
