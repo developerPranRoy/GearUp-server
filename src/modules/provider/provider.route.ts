@@ -34,4 +34,6 @@ router.patch(
   ProviderController.updateOrderStatus
 );
 
+router.get("/gear", auth("PROVIDER"), ProviderController.getProviderGear);
+
 export const ProviderRoutes = router;
