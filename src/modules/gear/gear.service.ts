@@ -1,27 +1,25 @@
 import httpStatus from "http-status";
 import { Prisma } from "@prisma/client";
 import ApiError from "../../errors/ApiError";
-import prisma from "../../shared/prisma";
+import { invalidateCache } from "../../middlewares/cache";
 import { paginationHelpers } from "../../utils/paginationHelper";
 import { gearSearchableFields } from "./gear.constant";
-import { IGearFilterRequest } from "./gear.interface";
+import { GearRepository } from "./gear.repository";
+import type { IGearFilterRequest, IGearCreateInput, IGearUpdateInput } from "./gear.interface";
 
-const createGearDb = async (providerId: string, payload: any) => {
-  const result = await prisma.gearItem.create({
-    data: {
-      ...payload,
-      providerId,
-      availableStock: payload.totalStock,
-    },
-    include: { category: true },
+const createGear = async (providerId: string, payload: IGearCreateInput) => {
+  const result = await GearRepository.create({
+    ...payload,
+    providerId,
+    availableStock: payload.totalStock,
   });
-
+  await invalidateCache("cache:/api/gear*");
   return result;
 };
 
-const getAllGearDb = async (
+const getAllGear = async (
   filters: IGearFilterRequest,
-  options: { page?: number; limit?: number; sortBy?: string; sortOrder?: string }
+  options: { page?: string; limit?: string; sortBy?: string; sortOrder?: string }
 ) => {
   const { page, limit, skip, sortBy, sortOrder } = paginationHelpers.calculatePagination(options);
   const { searchTerm, minPrice, maxPrice, category, brand, status } = filters;
@@ -35,93 +33,66 @@ const getAllGearDb = async (
       })),
     });
   }
+  if (category) andConditions.push({ categoryId: category });
+  if (brand) andConditions.push({ brand: { equals: brand, mode: "insensitive" } });
+  if (status) andConditions.push({ status: status as Prisma.EnumGearStatusFilter });
+  if (minPrice) andConditions.push({ pricePerDay: { gte: Number(minPrice) } });
+  if (maxPrice) andConditions.push({ pricePerDay: { lte: Number(maxPrice) } });
 
-  if (category) {
-    andConditions.push({ categoryId: category });
-  }
-
-  if (brand) {
-    andConditions.push({ brand: { equals: brand, mode: "insensitive" } });
-  }
-
-  if (status) {
-    andConditions.push({ status: status as any });
-  }
-
-  if (minPrice) {
-    andConditions.push({ pricePerDay: { gte: Number(minPrice) } });
-  }
-
-  if (maxPrice) {
-    andConditions.push({ pricePerDay: { lte: Number(maxPrice) } });
-  }
-
-  const whereConditions: Prisma.GearItemWhereInput =
+  const where: Prisma.GearItemWhereInput =
     andConditions.length > 0 ? { AND: andConditions } : {};
 
-  const result = await prisma.gearItem.findMany({
-    where: whereConditions,
-    skip,
-    take: limit,
-    orderBy: { [sortBy]: sortOrder },
-    include: { category: true, provider: { select: { id: true, name: true } } },
-  });
+  const [data, total] = await Promise.all([
+    GearRepository.findMany(where, skip, limit, { [sortBy]: sortOrder }),
+    GearRepository.count(where),
+  ]);
 
-  const total = await prisma.gearItem.count({ where: whereConditions });
-
-  return {
-    meta: { page, limit, total },
-    data: result,
-  };
+  return { meta: { page, limit, total }, data };
 };
 
-const getGearByIdDb = async (id: string) => {
-  const result = await prisma.gearItem.findUnique({
-    where: { id },
-    include: { category: true, provider: { select: { id: true, name: true } }, reviews: true },
-  });
-
-  if (!result) {
-    throw new ApiError(httpStatus.NOT_FOUND, "Gear item not found");
-  }
-
+const getGearById = async (id: string) => {
+  const result = await GearRepository.findById(id);
+  if (!result) throw new ApiError(httpStatus.NOT_FOUND, "Gear item not found");
   return result;
 };
 
-const updateGearDb = async (id: string, providerId: string, payload: any) => {
-  const gear = await prisma.gearItem.findUnique({ where: { id } });
-
-  if (!gear) {
-    throw new ApiError(httpStatus.NOT_FOUND, "Gear item not found");
-  }
-
+const updateGear = async (id: string, providerId: string, payload: IGearUpdateInput) => {
+  const gear = await GearRepository.findByIdRaw(id);
+  if (!gear) throw new ApiError(httpStatus.NOT_FOUND, "Gear item not found");
   if (gear.providerId !== providerId) {
     throw new ApiError(httpStatus.FORBIDDEN, "You cannot update another provider's gear");
   }
 
-  const result = await prisma.gearItem.update({ where: { id }, data: payload });
+  const result = await GearRepository.update(id, payload);
+  await invalidateCache("cache:/api/gear*");
   return result;
 };
 
-const deleteGearDb = async (id: string, providerId: string) => {
-  const gear = await prisma.gearItem.findUnique({ where: { id } });
-
-  if (!gear) {
-    throw new ApiError(httpStatus.NOT_FOUND, "Gear item not found");
-  }
-
+const deleteGear = async (id: string, providerId: string) => {
+  const gear = await GearRepository.findByIdRaw(id);
+  if (!gear) throw new ApiError(httpStatus.NOT_FOUND, "Gear item not found");
   if (gear.providerId !== providerId) {
     throw new ApiError(httpStatus.FORBIDDEN, "You cannot delete another provider's gear");
   }
 
-  const result = await prisma.gearItem.delete({ where: { id } });
-  return result;
+  const activeRental = await GearRepository.findFirstActiveRental(id);
+  if (activeRental) {
+    throw new ApiError(
+      httpStatus.CONFLICT,
+      "Cannot delete gear with active rentals. Cancel all active rentals first."
+    );
+  }
+
+  const hasHistory = await GearRepository.findFirstAnyRental(id);
+  if (hasHistory) {
+    const result = await GearRepository.update(id, { status: "UNAVAILABLE" });
+    await invalidateCache("cache:/api/gear*");
+    return { ...result, softDeleted: true };
+  }
+
+  const result = await GearRepository.remove(id);
+  await invalidateCache("cache:/api/gear*");
+  return { ...result, softDeleted: false };
 };
 
-export const GearService = {
-  createGearDb,
-  getAllGearDb,
-  getGearByIdDb,
-  updateGearDb,
-  deleteGearDb,
-};
+export const GearService = { createGear, getAllGear, getGearById, updateGear, deleteGear };

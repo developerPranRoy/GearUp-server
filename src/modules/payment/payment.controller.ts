@@ -5,9 +5,7 @@ import sendResponse from "../../utils/sendResponse";
 import { PaymentService } from "./payment.service";
 
 const createPayment = catchAsync(async (req: Request, res: Response) => {
-  const customerId = req.user?.id;
-  const result = await PaymentService.createPaymentDb(customerId, req.body);
-
+  const result = await PaymentService.createPayment(req.user!.id as string, req.body);
   sendResponse(res, {
     success: true,
     statusCode: httpStatus.CREATED,
@@ -18,26 +16,12 @@ const createPayment = catchAsync(async (req: Request, res: Response) => {
 
 const stripeWebhook = catchAsync(async (req: Request, res: Response) => {
   const signature = req.headers["stripe-signature"] as string;
-  const result = await PaymentService.handleStripeWebhookDb(req.body, signature);
-
+  const result = await PaymentService.handleStripeWebhook(req.body, signature);
   res.status(httpStatus.OK).json(result);
 });
 
-const confirmPayment = catchAsync(async (req: Request, res: Response) => {
-  const result = await PaymentService.confirmPaymentDb(req.body);
-
-  sendResponse(res, {
-    success: true,
-    statusCode: httpStatus.OK,
-    message: "Payment confirmed successfully",
-    data: result,
-  });
-});
-
 const getMyPayments = catchAsync(async (req: Request, res: Response) => {
-  const customerId = req.user?.id;
-  const result = await PaymentService.getMyPaymentsDb(customerId);
-
+  const result = await PaymentService.getMyPayments(req.user!.id as string);
   sendResponse(res, {
     success: true,
     statusCode: httpStatus.OK,
@@ -47,11 +31,11 @@ const getMyPayments = catchAsync(async (req: Request, res: Response) => {
 });
 
 const getPaymentById = catchAsync(async (req: Request, res: Response) => {
-  const { id } = req.params;
-  const customerId = req.user?.id;
-  const role = req.user?.role;
-  const result = await PaymentService.getPaymentByIdDb(id, customerId, role);
-
+  const result = await PaymentService.getPaymentById(
+    req.params.id,
+    req.user!.id as string,
+    req.user!.role as string
+  );
   sendResponse(res, {
     success: true,
     statusCode: httpStatus.OK,
@@ -63,7 +47,6 @@ const getPaymentById = catchAsync(async (req: Request, res: Response) => {
 export const PaymentController = {
   createPayment,
   stripeWebhook,
-  confirmPayment,
   getMyPayments,
   getPaymentById,
 };

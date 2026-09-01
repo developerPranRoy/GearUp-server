@@ -1,12 +1,14 @@
-import { NextFunction, Request, Response } from "express";
+import { NextFunction, Request, Response, RequestHandler } from "express";
 
-const catchAsync = (fn: Function) => {
-  return async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      await fn(req, res, next);
-    } catch (error) {
-      next(error);
-    }
+/**
+ * Wraps an async route handler so unhandled promise rejections are forwarded
+ * to Express's error pipeline via next(). Fully typed — no more `fn: Function`.
+ */
+const catchAsync = (
+  fn: (req: Request, res: Response, next: NextFunction) => Promise<void>
+): RequestHandler => {
+  return (req, res, next) => {
+    fn(req, res, next).catch(next);
   };
 };
 

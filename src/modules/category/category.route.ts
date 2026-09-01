@@ -1,13 +1,14 @@
-import express from "express";
+import { Router } from "express";
+import { Role } from "@prisma/client";
 import auth from "../../middlewares/auth";
 import validateRequest from "../../middlewares/validateRequest";
+import { cache } from "../../middlewares/cache";
 import { CategoryValidation } from "./category.validation";
 import { CategoryController } from "./category.controller";
-import { Role } from "@prisma/client";
 
-const router = express.Router();
+const router = Router();
 
-router.get("/", CategoryController.getAllCategories);
+router.get("/", cache(300), CategoryController.getAllCategories);
 
 router.post(
   "/",

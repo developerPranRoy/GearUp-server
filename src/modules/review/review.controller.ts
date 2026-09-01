@@ -5,17 +5,8 @@ import sendResponse from "../../utils/sendResponse";
 import { ReviewService } from "./review.service";
 
 const createReview = catchAsync(async (req: Request, res: Response) => {
-  const customerId = req.user?.id;
-  const result = await ReviewService.createReviewDb(customerId, req.body);
-
-  sendResponse(res, {
-    success: true,
-    statusCode: httpStatus.CREATED,
-    message: "Review submitted successfully",
-    data: result,
-  });
+  const data = await ReviewService.createReview(req.user!.id as string, req.body);
+  sendResponse(res, { success: true, statusCode: httpStatus.CREATED, message: "Review submitted", data });
 });
 
-export const ReviewController = {
-  createReview,
-};
+export const ReviewController = { createReview };

@@ -3,23 +3,22 @@ import httpStatus from "http-status";
 import catchAsync from "../../utils/catchAsync";
 import sendResponse from "../../utils/sendResponse";
 import { AdminService } from "./admin.service";
+import pick from "../../shared/pick";
 
 const getAllUsers = catchAsync(async (req: Request, res: Response) => {
-  const result = await AdminService.getAllUsersDb();
-
+  const options = pick(req.query, ["page", "limit"]);
+  const result = await AdminService.getAllUsers(options);
   sendResponse(res, {
     success: true,
     statusCode: httpStatus.OK,
     message: "Users retrieved successfully",
-    data: result,
+    meta: result.meta,
+    data: result.data,
   });
 });
 
 const updateUserStatus = catchAsync(async (req: Request, res: Response) => {
-  const { id } = req.params;
-  const { status } = req.body;
-  const result = await AdminService.updateUserStatusDb(id, status);
-
+  const result = await AdminService.updateUserStatus(req.params.id, req.body.status);
   sendResponse(res, {
     success: true,
     statusCode: httpStatus.OK,
@@ -29,30 +28,27 @@ const updateUserStatus = catchAsync(async (req: Request, res: Response) => {
 });
 
 const getAllGear = catchAsync(async (req: Request, res: Response) => {
-  const result = await AdminService.getAllGearDb();
-
+  const options = pick(req.query, ["page", "limit"]);
+  const result = await AdminService.getAllGear(options);
   sendResponse(res, {
     success: true,
     statusCode: httpStatus.OK,
     message: "Gear listings retrieved successfully",
-    data: result,
+    meta: result.meta,
+    data: result.data,
   });
 });
 
 const getAllRentals = catchAsync(async (req: Request, res: Response) => {
-  const result = await AdminService.getAllRentalsDb();
-
+  const options = pick(req.query, ["page", "limit"]);
+  const result = await AdminService.getAllRentals(options);
   sendResponse(res, {
     success: true,
     statusCode: httpStatus.OK,
     message: "Rental orders retrieved successfully",
-    data: result,
+    meta: result.meta,
+    data: result.data,
   });
 });
 
-export const AdminController = {
-  getAllUsers,
-  updateUserStatus,
-  getAllGear,
-  getAllRentals,
-};
+export const AdminController = { getAllUsers, updateUserStatus, getAllGear, getAllRentals };

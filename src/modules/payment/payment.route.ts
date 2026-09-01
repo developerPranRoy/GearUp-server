@@ -1,11 +1,13 @@
-import express from "express";
+import { Router } from "express";
+import { Role } from "@prisma/client";
 import auth from "../../middlewares/auth";
 import validateRequest from "../../middlewares/validateRequest";
 import { PaymentValidation } from "./payment.validation";
 import { PaymentController } from "./payment.controller";
-import { Role } from "@prisma/client";
 
-const router = express.Router();
+const router = Router();
+
+// Webhook is registered directly on app.ts (needs raw body — before JSON parser)
 
 router.post(
   "/create",
@@ -14,13 +16,7 @@ router.post(
   PaymentController.createPayment
 );
 
-router.post(
-  "/confirm",
-  validateRequest(PaymentValidation.confirmPaymentZodSchema),
-  PaymentController.confirmPayment
-);
-
-router.get("/",  auth(Role.CUSTOMER), PaymentController.getMyPayments);
-router.get("/:id",  auth(Role.CUSTOMER,Role.ADMIN), PaymentController.getPaymentById);
+router.get("/", auth(Role.CUSTOMER), PaymentController.getMyPayments);
+router.get("/:id", auth(Role.CUSTOMER, Role.ADMIN), PaymentController.getPaymentById);
 
 export const PaymentRoutes = router;

@@ -1,59 +1,39 @@
 import httpStatus from "http-status";
 import ApiError from "../../errors/ApiError";
-import prisma from "../../shared/prisma";
+import { paginationHelpers, type PaginationOptions } from "../../utils/paginationHelper";
+import { AdminRepository } from "./admin.repository";
 
-const getAllUsersDb = async () => {
-  const result = await prisma.user.findMany({
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      phone: true,
-      role: true,
-      status: true,
-      createdAt: true,
-    },
-    orderBy: { createdAt: "desc" },
-  });
-
-  return result;
+const getAllUsers = async (options: PaginationOptions) => {
+  const { page, limit, skip } = paginationHelpers.calculatePagination(options);
+  const [data, total] = await Promise.all([
+    AdminRepository.findAllUsers(skip, limit),
+    AdminRepository.countUsers(),
+  ]);
+  return { meta: { page, limit, total }, data };
 };
 
-const updateUserStatusDb = async (userId: string, status: "ACTIVE" | "SUSPENDED") => {
-  const user = await prisma.user.findUnique({ where: { id: userId } });
-
-  if (!user) {
-    throw new ApiError(httpStatus.NOT_FOUND, "User not found");
-  }
-
-  const result = await prisma.user.update({ where: { id: userId }, data: { status } });
-  return result;
+const updateUserStatus = async (userId: string, status: "ACTIVE" | "SUSPENDED") => {
+  const user = await AdminRepository.findUserById(userId);
+  if (!user) throw new ApiError(httpStatus.NOT_FOUND, "User not found");
+  return AdminRepository.updateUserStatus(userId, status);
 };
 
-const getAllGearDb = async () => {
-  const result = await prisma.gearItem.findMany({
-    include: { category: true, provider: { select: { id: true, name: true } } },
-    orderBy: { createdAt: "desc" },
-  });
-
-  return result;
+const getAllGear = async (options: PaginationOptions) => {
+  const { page, limit, skip } = paginationHelpers.calculatePagination(options);
+  const [data, total] = await Promise.all([
+    AdminRepository.findAllGear(skip, limit),
+    AdminRepository.countGear(),
+  ]);
+  return { meta: { page, limit, total }, data };
 };
 
-const getAllRentalsDb = async () => {
-  const result = await prisma.rentalOrder.findMany({
-    include: {
-      items: { include: { gearItem: true } },
-      customer: { select: { id: true, name: true, email: true } },
-    },
-    orderBy: { createdAt: "desc" },
-  });
-
-  return result;
+const getAllRentals = async (options: PaginationOptions) => {
+  const { page, limit, skip } = paginationHelpers.calculatePagination(options);
+  const [data, total] = await Promise.all([
+    AdminRepository.findAllRentals(skip, limit),
+    AdminRepository.countRentals(),
+  ]);
+  return { meta: { page, limit, total }, data };
 };
 
-export const AdminService = {
-  getAllUsersDb,
-  updateUserStatusDb,
-  getAllGearDb,
-  getAllRentalsDb,
-};
+export const AdminService = { getAllUsers, updateUserStatus, getAllGear, getAllRentals };

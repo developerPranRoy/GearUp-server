@@ -1,18 +1,15 @@
 import httpStatus from "http-status";
 import ApiError from "../../errors/ApiError";
-import prisma from "../../shared/prisma";
+import { ReviewRepository } from "./review.repository";
 
-const createReviewDb = async (
+const createReview = async (
   customerId: string,
   payload: { gearItemId: string; rating: number; comment?: string }
 ) => {
-  const hasReturnedRental = await prisma.rentalOrderItem.findFirst({
-    where: {
-      gearItemId: payload.gearItemId,
-      rentalOrder: { customerId, status: "RETURNED" },
-    },
-  });
-
+  const hasReturnedRental = await ReviewRepository.findReturnedRental(
+    customerId,
+    payload.gearItemId
+  );
   if (!hasReturnedRental) {
     throw new ApiError(
       httpStatus.BAD_REQUEST,
@@ -20,13 +17,12 @@ const createReviewDb = async (
     );
   }
 
-  const result = await prisma.review.create({
-    data: { ...payload, customerId },
-  });
+  const existing = await ReviewRepository.findExisting(customerId, payload.gearItemId);
+  if (existing) {
+    throw new ApiError(httpStatus.CONFLICT, "You have already reviewed this item");
+  }
 
-  return result;
+  return ReviewRepository.create({ ...payload, customerId });
 };
 
-export const ReviewService = {
-  createReviewDb,
-};
+export const ReviewService = { createReview };

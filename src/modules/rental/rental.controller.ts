@@ -5,9 +5,7 @@ import sendResponse from "../../utils/sendResponse";
 import { RentalService } from "./rental.service";
 
 const createRental = catchAsync(async (req: Request, res: Response) => {
-  const customerId = req.user?.id;
-  const result = await RentalService.createRentalDb(customerId, req.body);
-
+  const result = await RentalService.createRental(req.user!.id as string, req.body);
   sendResponse(res, {
     success: true,
     statusCode: httpStatus.CREATED,
@@ -17,9 +15,7 @@ const createRental = catchAsync(async (req: Request, res: Response) => {
 });
 
 const getMyRentals = catchAsync(async (req: Request, res: Response) => {
-  const customerId = req.user?.id;
-  const result = await RentalService.getMyRentalsDb(customerId);
-
+  const result = await RentalService.getMyRentals(req.user!.id as string);
   sendResponse(res, {
     success: true,
     statusCode: httpStatus.OK,
@@ -29,11 +25,11 @@ const getMyRentals = catchAsync(async (req: Request, res: Response) => {
 });
 
 const getRentalById = catchAsync(async (req: Request, res: Response) => {
-  const { id } = req.params;
-  const userId = req.user?.id;
-  const role = req.user?.role;
-  const result = await RentalService.getRentalByIdDb(id, userId, role);
-
+  const result = await RentalService.getRentalById(
+    req.params.id,
+    req.user!.id as string,
+    req.user!.role as string
+  );
   sendResponse(res, {
     success: true,
     statusCode: httpStatus.OK,
@@ -43,10 +39,10 @@ const getRentalById = catchAsync(async (req: Request, res: Response) => {
 });
 
 const cancelRental = catchAsync(async (req: Request, res: Response) => {
-  const { id } = req.params;
-  const customerId = req.user?.id;
-  const result = await RentalService.cancelRentalDb(id, customerId);
-
+  const result = await RentalService.cancelRental(
+    req.params.id,
+    req.user!.id as string
+  );
   sendResponse(res, {
     success: true,
     statusCode: httpStatus.OK,
@@ -55,9 +51,4 @@ const cancelRental = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
-export const RentalController = {
-  createRental,
-  getMyRentals,
-  getRentalById,
-  cancelRental,
-};
+export const RentalController = { createRental, getMyRentals, getRentalById, cancelRental };

@@ -1,18 +1,19 @@
-import express from "express";
+import { Router } from "express";
+import { Role } from "@prisma/client";
 import auth from "../../middlewares/auth";
 import validateRequest from "../../middlewares/validateRequest";
+import { cache } from "../../middlewares/cache";
 import { GearValidation } from "./gear.validation";
 import { GearController } from "./gear.controller";
-import { Role } from "@prisma/client";
 
-const router = express.Router();
+const router = Router();
 
-router.get("/", GearController.getAllGear);
-router.get("/:id", GearController.getGearById);
+router.get("/", cache(60), GearController.getAllGear);
+router.get("/:id", cache(120), GearController.getGearById);
 
 router.post(
   "/",
-   auth(Role.PROVIDER),
+  auth(Role.PROVIDER),
   validateRequest(GearValidation.createGearZodSchema),
   GearController.createGear
 );

@@ -1,82 +1,54 @@
 import httpStatus from "http-status";
 import ApiError from "../../errors/ApiError";
 import prisma from "../../shared/prisma";
+import { ProviderRepository } from "./provider.repository";
 
-const getProviderOrdersDb = async (providerId: string) => {
-  const result = await prisma.rentalOrder.findMany({
-    where: { items: { some: { gearItem: { providerId } } } },
-    include: {
-      items: { include: { gearItem: true } },
-      customer: { select: { id: true, name: true, email: true } },
-    },
-    orderBy: { createdAt: "desc" },
-  });
-
-  return result;
+const ALLOWED_TRANSITIONS: Record<string, string[]> = {
+  PLACED: ["CONFIRMED"],
+  PAID: ["PICKED_UP"],
+  PICKED_UP: ["RETURNED"],
 };
 
-const updateOrderStatusDb = async (
+const getProviderOrders = (providerId: string) =>
+  ProviderRepository.findOrdersByProvider(providerId);
+
+const getProviderGear = (providerId: string) =>
+  ProviderRepository.findGearByProvider(providerId);
+
+const updateOrderStatus = async (
   orderId: string,
   providerId: string,
   status: "CONFIRMED" | "PICKED_UP" | "RETURNED"
 ) => {
-  const order = await prisma.rentalOrder.findUnique({
-    where: { id: orderId },
-    include: { items: { include: { gearItem: true } } },
-  });
-
-  if (!order) {
-    throw new ApiError(httpStatus.NOT_FOUND, "Rental order not found");
-  }
+  const order = await ProviderRepository.findOrderById(orderId);
+  if (!order) throw new ApiError(httpStatus.NOT_FOUND, "Rental order not found");
 
   const ownsOrder = order.items.some((item) => item.gearItem.providerId === providerId);
-
   if (!ownsOrder) {
-    throw new ApiError(httpStatus.FORBIDDEN, "You cannot update an order that isn't yours");
+    throw new ApiError(httpStatus.FORBIDDEN, "You cannot update an order that is not yours");
   }
 
-  const allowedTransitions: Record<string, string[]> = {
-    PLACED: ["CONFIRMED"],
-    PAID: ["PICKED_UP"],
-    PICKED_UP: ["RETURNED"],
-  };
-
-  if (!allowedTransitions[order.status]?.includes(status)) {
+  if (!ALLOWED_TRANSITIONS[order.status]?.includes(status)) {
     throw new ApiError(
       httpStatus.BAD_REQUEST,
-      `Cannot move order from ${order.status} to ${status}`
+      `Cannot transition order from ${order.status} to ${status}`
     );
   }
 
-  const result = await prisma.$transaction(async (tx) => {
-    if (status === "RETURNED") {
+  // Restore stock when gear is returned — wrapped in transaction
+  if (status === "RETURNED") {
+    return prisma.$transaction(async (tx) => {
       for (const item of order.items) {
         await tx.gearItem.update({
           where: { id: item.gearItemId },
           data: { availableStock: { increment: item.quantity } },
         });
       }
-    }
+      return tx.rentalOrder.update({ where: { id: orderId }, data: { status } });
+    });
+  }
 
-    return tx.rentalOrder.update({ where: { id: orderId }, data: { status } });
-  });
-
-  return result;
+  return ProviderRepository.updateOrderStatus(orderId, status);
 };
 
-
-const getProviderGearDb = async (providerId: string) => {
-  const result = await prisma.gearItem.findMany({
-    where: { providerId },
-    include: { category: true },
-    orderBy: { createdAt: "desc" },
-  });
-
-  return result;
-};
-
-export const ProviderService = {
-  getProviderGearDb,
-  getProviderOrdersDb,
-  updateOrderStatusDb,
-};
+export const ProviderService = { getProviderOrders, getProviderGear, updateOrderStatus };

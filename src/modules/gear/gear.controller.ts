@@ -7,9 +7,7 @@ import { gearFilterableFields } from "./gear.constant";
 import pick from "../../shared/pick";
 
 const createGear = catchAsync(async (req: Request, res: Response) => {
-  const providerId = req.user?.id;
-  const result = await GearService.createGearDb(providerId, req.body);
-
+  const result = await GearService.createGear(req.user!.id as string, req.body);
   sendResponse(res, {
     success: true,
     statusCode: httpStatus.CREATED,
@@ -21,9 +19,7 @@ const createGear = catchAsync(async (req: Request, res: Response) => {
 const getAllGear = catchAsync(async (req: Request, res: Response) => {
   const filters = pick(req.query, gearFilterableFields);
   const options = pick(req.query, ["page", "limit", "sortBy", "sortOrder"]);
-
-  const result = await GearService.getAllGearDb(filters, options);
-
+  const result = await GearService.getAllGear(filters, options);
   sendResponse(res, {
     success: true,
     statusCode: httpStatus.OK,
@@ -34,9 +30,7 @@ const getAllGear = catchAsync(async (req: Request, res: Response) => {
 });
 
 const getGearById = catchAsync(async (req: Request, res: Response) => {
-  const { id } = req.params;
-  const result = await GearService.getGearByIdDb(id);
-
+  const result = await GearService.getGearById(req.params.id);
   sendResponse(res, {
     success: true,
     statusCode: httpStatus.OK,
@@ -46,10 +40,11 @@ const getGearById = catchAsync(async (req: Request, res: Response) => {
 });
 
 const updateGear = catchAsync(async (req: Request, res: Response) => {
-  const { id } = req.params;
-  const providerId = req.user?.id;
-  const result = await GearService.updateGearDb(id, providerId, req.body);
-
+  const result = await GearService.updateGear(
+    req.params.id,
+    req.user!.id as string,
+    req.body
+  );
   sendResponse(res, {
     success: true,
     statusCode: httpStatus.OK,
@@ -59,10 +54,7 @@ const updateGear = catchAsync(async (req: Request, res: Response) => {
 });
 
 const deleteGear = catchAsync(async (req: Request, res: Response) => {
-  const { id } = req.params;
-  const providerId = req.user?.id;
-  const result = await GearService.deleteGearDb(id, providerId);
-
+  const result = await GearService.deleteGear(req.params.id, req.user!.id as string);
   sendResponse(res, {
     success: true,
     statusCode: httpStatus.OK,
@@ -71,10 +63,4 @@ const deleteGear = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
-export const GearController = {
-  createGear,
-  getAllGear,
-  getGearById,
-  updateGear,
-  deleteGear,
-};
+export const GearController = { createGear, getAllGear, getGearById, updateGear, deleteGear };
