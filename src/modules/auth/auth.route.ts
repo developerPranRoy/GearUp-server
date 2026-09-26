@@ -28,6 +28,12 @@ router.post(
   AuthController.refreshToken
 );
 
+router.post(
+  "/google",
+  authLimiter,
+  AuthController.googleLogin
+);
+
 router.get(
   "/me",
   auth(Role.ADMIN, Role.CUSTOMER, Role.PROVIDER),

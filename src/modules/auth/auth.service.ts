@@ -1,5 +1,6 @@
 import bcrypt from "bcryptjs";
 import httpStatus from "http-status";
+import { OAuth2Client } from "google-auth-library";
 import ApiError from "../../errors/ApiError";
 import config from "../../config";
 import { jwtHelpers } from "../../utils/jwtHelpers";
@@ -33,7 +34,7 @@ const loginUser = async (payload: ILoginUser): Promise<ILoginUserResponse> => {
     throw new ApiError(httpStatus.FORBIDDEN, "Your account has been suspended");
   }
 
-  const passwordMatch = await bcrypt.compare(payload.password, user.password);
+  const passwordMatch = await bcrypt.compare(payload.password, user.password ?? "");
   if (!passwordMatch) {
     throw new ApiError(httpStatus.UNAUTHORIZED, "Invalid email or password");
   }
@@ -76,4 +77,39 @@ const updateMe = async (userId: string, payload: { name?: string; phone?: string
   return AuthRepository.update(userId, payload);
 };
 
-export const AuthService = { registerUser, loginUser, refreshAccessToken, getMe, updateMe };
+const googleLogin = async (idToken: string): Promise<ILoginUserResponse> => {
+  const client = new OAuth2Client(config.googleClientId);
+
+  let ticket;
+  try {
+    ticket = await client.verifyIdToken({
+      idToken,
+      audience: config.googleClientId,
+    });
+  } catch {
+    throw new ApiError(httpStatus.UNAUTHORIZED, "Invalid Google token");
+  }
+
+  const payload = ticket.getPayload();
+  if (!payload?.sub || !payload.email) {
+    throw new ApiError(httpStatus.UNAUTHORIZED, "Google token missing required fields");
+  }
+
+  const user = await AuthRepository.upsertGoogleUser({
+    googleId: payload.sub,
+    name: payload.name || payload.email.split("@")[0],
+    email: payload.email,
+  });
+
+  if (user.status === "SUSPENDED") {
+    throw new ApiError(httpStatus.FORBIDDEN, "Your account has been suspended");
+  }
+
+  const tokenPayload = { id: user.id, email: user.email, role: user.role };
+  const accessToken = jwtHelpers.createToken(tokenPayload, config.jwt.secret, config.jwt.expiresIn);
+  const refreshToken = jwtHelpers.createToken(tokenPayload, config.jwt.refreshSecret, config.jwt.refreshExpiresIn);
+
+  return { accessToken, refreshToken };
+};
+
+export const AuthService = { registerUser, loginUser, refreshAccessToken, getMe, updateMe, googleLogin };

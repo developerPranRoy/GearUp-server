@@ -55,10 +55,22 @@ const updateMe = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const googleLogin = catchAsync(async (req: Request, res: Response) => {
+  const { idToken } = req.body as { idToken: string };
+  const data = await AuthService.googleLogin(idToken);
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus.OK,
+    message: "Logged in with Google successfully",
+    data,
+  });
+});
+
 export const AuthController = {
   registerUser,
   loginUser,
   refreshToken,
   getMe,
   updateMe,
+  googleLogin,
 };
