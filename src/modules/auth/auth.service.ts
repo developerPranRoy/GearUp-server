@@ -77,6 +77,10 @@ const updateMe = async (userId: string, payload: { name?: string; phone?: string
   return AuthRepository.update(userId, payload);
 };
 
+const uploadAvatar = async (userId: string, avatarUrl: string) => {
+  return AuthRepository.updateAvatar(userId, avatarUrl);
+};
+
 const googleLogin = async (idToken: string): Promise<ILoginUserResponse> => {
   const client = new OAuth2Client(config.googleClientId);
 
@@ -112,4 +116,4 @@ const googleLogin = async (idToken: string): Promise<ILoginUserResponse> => {
   return { accessToken, refreshToken };
 };
 
-export const AuthService = { registerUser, loginUser, refreshAccessToken, getMe, updateMe, googleLogin };
+export const AuthService = { registerUser, loginUser, refreshAccessToken, getMe, updateMe, googleLogin, uploadAvatar };

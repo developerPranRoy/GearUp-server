@@ -5,6 +5,7 @@ const USER_PUBLIC_SELECT = {
   name: true,
   email: true,
   phone: true,
+  avatarUrl: true,
   role: true,
   status: true,
   createdAt: true,
@@ -68,6 +69,9 @@ const upsertGoogleUser = async (data: {
 const update = (id: string, data: { name?: string; phone?: string }) =>
   prisma.user.update({ where: { id }, data, select: USER_PUBLIC_SELECT });
 
+const updateAvatar = (id: string, avatarUrl: string) =>
+  prisma.user.update({ where: { id }, data: { avatarUrl }, select: USER_PUBLIC_SELECT });
+
 export const AuthRepository = {
   findByEmail,
   findById,
@@ -76,4 +80,5 @@ export const AuthRepository = {
   create,
   upsertGoogleUser,
   update,
+  updateAvatar,
 };

@@ -3,6 +3,7 @@ import { Role } from "@prisma/client";
 import auth from "../../middlewares/auth";
 import validateRequest from "../../middlewares/validateRequest";
 import { authLimiter } from "../../middlewares/rateLimiter";
+import { uploadAvatar } from "../../middlewares/upload";
 import { AuthController } from "./auth.controller";
 import { AuthValidation } from "./auth.validation";
 
@@ -45,6 +46,13 @@ router.patch(
   auth(Role.ADMIN, Role.CUSTOMER, Role.PROVIDER),
   validateRequest(AuthValidation.updateMeZodSchema),
   AuthController.updateMe
+);
+
+router.post(
+  "/me/avatar",
+  auth(Role.ADMIN, Role.CUSTOMER, Role.PROVIDER),
+  uploadAvatar.single("avatar"),
+  AuthController.uploadAvatar
 );
 
 export const AuthRoutes = router;
